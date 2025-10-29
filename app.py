@@ -313,9 +313,9 @@ def simple_bias(always_in: str, tr_score: float, or_status: str) -> str:
     else:
         ctx = "mixed conditions"
     if or_status == "above":
-        or_clause = "trading above the opening range"
+        or_clause = " above the opening range"
     elif or_status == "below":
-        or_clause = "trading below the opening range"
+        or_clause = " below the opening range"
     else:
         or_clause = "inside the opening range"
     return f"Bias: {always_in.upper()} under {ctx}, currently {or_clause}."
@@ -393,24 +393,22 @@ def recommend_setup(day: pd.DataFrame,
     return {"label": "No high-probability setup", "rationale": "Conditions lack clear edge under current rules."}
 
 def narrative_text(or_info: dict, by18: dict) -> str:
-    """Plain-English primer you described, with current session facts filled in."""
+    """Facts-only summary. No explanations."""
     lines = []
-    lines.append("The market open sets the initial bias. The opening range is the first several bars (≈5–18).")
-    lines.append("It marks the initial battle between bulls and bears; its high/low act as intraday S/R.")
-    lines.append("")
-    lines.append("Opening Range facts today:")
-    lines.append(f"• Bars counted: {or_info['bars']}  • High: {or_info['high']:.2f}  • Low: {or_info['low']:.2f}")
-    lines.append(f"• Price is currently {or_info['status']} the opening range.")
-    lines.append("• Breakouts from this range often indicate a trend; failed breakouts often reverse.")
+    lines.append("**Opening Range facts today:**")
+    lines.append(f"• Bars counted: {or_info['bars']}")
+    lines.append(f"• High: {or_info['high']:.2f}")
+    lines.append(f"• Low: {or_info['low']:.2f}")
+    lines.append(f"• Price status: {or_info['status']}")
     if by18.get("enough_bars"):
         hi_hold = "still the day high" if by18["high_still_day_high"] else "not the current day high"
         lo_hold = "still the day low" if by18["low_still_day_low"] else "not the current day low"
         lines.append("")
-        lines.append("Bar 18 heuristic:")
+        lines.append("**Bar 18:**")
         lines.append(f"• High by Bar 18: {by18['high_at18']:.2f} ({hi_hold})")
         lines.append(f"• Low by Bar 18: {by18['low_at18']:.2f} ({lo_hold})")
-        lines.append("• If price approaches that extreme and it holds, fading via a pullback can be reasonable.")
     return "\n".join(lines)
+
 
 
 # ----------------------- Analysis -----------------------
@@ -468,21 +466,55 @@ if go and symbol:
         )
 
         # ---------- Flags ----------
+       # ---------- Flags (more specific) ----------
         flags = []
+
+        # Always-In state
         if always == "bull":
-            flags.append("Always-In Bull")
+            flags.append("Always-In: Bull")
         elif always == "bear":
-            flags.append("Always-In Bear")
-        if overlap >= 0.55:
-            flags.append("Trading-Range Day")
+            flags.append("Always-In: Bear")
+        else:
+            flags.append("Always-In: Neutral")
+
+        # Trading-range intensity
+        if overlap >= 0.75:
+            flags.append("Range Bias: Strong")
+        elif overlap >= 0.60:
+            flags.append("Range Bias: Moderate")
+        elif overlap <= 0.25:
+            flags.append("Trend Bias: Strong")
+        else:
+            flags.append("Trend Bias: Mixed")
+
+        # Opening-range breakout specifics
+        if or_bo:
+            if or_bo.get("direction") == "up":
+                flags.append("OR Breakout: Up")
+                flags.append(f"OR Follow-through: {'Yes' if or_bo.get('follow_through') else 'No'}")
+            elif or_bo.get("direction") == "down":
+                flags.append("OR Breakout: Down")
+                flags.append(f"OR Follow-through: {'Yes' if or_bo.get('follow_through') else 'No'}")
+            else:
+                # Detect failed re-entry: previously outside, currently inside
+                or_hi, or_lo = or_info["high"], or_info["low"]
+                was_above = (day["Close"] > or_hi).any()
+                was_below = (day["Close"] < or_lo).any()
+                if or_info["status"] == "inside" and (was_above or was_below):
+                    flags.append("Failed OR Breakout → Re-entry")
+
+        # Bar-18 specifics (90% heuristic incorporated as labeling)
+        if by18.get("enough_bars"):
+            if by18["high_still_day_high"]:
+                flags.append("Bar-18: Morning High is Day High (90% heuristic)")
+            if by18["low_still_day_low"]:
+                flags.append("Bar-18: Morning Low is Day Low (90% heuristic)")
+
+        # Microchannel exhaustion hint
         if max(int(mc_bull.iloc[-1]), int(mc_bear.iloc[-1])) >= 6:
-            flags.append("Microchannel ≥6")
-        if or_bo and or_bo.get("direction") == "up":
-            flags.append("Opening BO Up")
-        elif or_bo and or_bo.get("direction") == "down":
-            flags.append("Opening BO Down")
-        if bar18:
-            flags.append("Bar-18 Exhaustion Risk")
+            side = "Bull" if int(mc_bull.iloc[-1]) >= int(mc_bear.iloc[-1]) else "Bear"
+            flags.append(f"Microchannel ≥6: {side}-side exhaustion risk")
+
 
         # ----------------------- Output -----------------------
         # Extra context
@@ -505,16 +537,25 @@ if go and symbol:
 
         n1, n2, n3 = st.columns(3)
         n1.metric("Always-In", always)
-        n2.metric("Trading-Range Score (0–1)", f"{overlap:.2f}")
+        n2.metric("-Range Score (0–1)", f"{overlap:.2f}")
         n3.metric("Microchannel len (bull/bear)", f"{int(mc_bull.iloc[-1])}/{int(mc_bear.iloc[-1])}")
 
         # Trading plan summary
         st.subheader("Trading Plan Summary")
         st.markdown(f"**{bias_line}**")
         st.markdown(narrative_text(or_info, by18))
-        st.markdown("**Setup**")
-        st.markdown(f"- **{setup['label']}**")
-        st.caption(setup["rationale"])
+
+        # Big, prominent Setup block
+        st.markdown(
+            f"""
+        <div style="margin-top:0.5rem; padding:0.75rem 1rem; border-left:6px solid rgba(0,0,0,0.25); background:rgba(0,0,0,0.03); border-radius:8px;">
+          <div style="font-size:1.25rem; font-weight:700; margin-bottom:0.25rem;">{setup['label']}</div>
+          <div style="opacity:0.85; font-size:0.95rem;">{setup['rationale']}</div>
+        </div>   
+        """,
+         unsafe_allow_html=True,
+        )
+
 
         # Flags
         st.subheader("Session Flags")
