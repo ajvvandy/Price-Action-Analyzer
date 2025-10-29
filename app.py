@@ -512,15 +512,13 @@ if go and symbol:
         always, ema20, ema50 = always_in(day)
         mc_bull, mc_bear = microchannel_lengths(day)
         overlap = float(overlap_score(day, window=24).iloc[-1])
-        bar18, b18d = bar18_flag(day)
+        bar18, b18d = bar18_flag(day)  # or bar18_flag(day, start_bar=..., end_bar=...)
         mm_up, mm_dn = measured_move(day)
         or_bo = opening_range_breakout(day)
         today_range, adr14 = range_vs_adr(day, df_all.set_index("Datetime"))
-        outlook = day_outlook_prediction(overlap, always, by18, or_info, or_bo)
-
 
         # ---------- Derived context (MUST come before UI) ----------
-        or_info = opening_range(day, bars_min=5, bars_max=18)
+        or_info = opening_range(day, bars_min=5, bars_max=18)  # or your slider value
         by18 = hi_lo_by_bar18(day)
         bias_line = simple_bias(always, overlap, or_info["status"])
         setup = recommend_setup(
@@ -530,7 +528,18 @@ if go and symbol:
             mc_bull_last=int(mc_bull.iloc[-1]),
             mc_bear_last=int(mc_bear.iloc[-1]),
             always_in=always
-        )
+        )        
+
+        # ---------- Outlook (now that or_info/by18 exist) ----------
+        outlook = day_outlook_prediction(overlap, always, by18, or_info, or_bo)
+
+        # ---------- Top metrics ----------
+        n1, n2, n3 = st.columns(3)
+        n1.metric("Always-In", always.upper())
+        n2.metric("Day Outlook", outlook["label"],
+                  delta=f"Bull {outlook['bull']:.0%} • Range {outlook['range']:.0%} • Bear {outlook['bear']:.0%}")
+        n3.metric("Microchannel len (bull/bear)", f"{int(mc_bull.iloc[-1])}/{int(mc_bear.iloc[-1])}")
+
 
         # ---------- Flags ----------
        # ---------- Flags (more specific) ----------
