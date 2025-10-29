@@ -561,9 +561,6 @@ if go and symbol:
             always_in=always
         )        
 
-        # ---------- Outlook (now that or_info/by18 exist) ----------
-        outlook = day_outlook_prediction(overlap, always, by18, or_info, or_bo)
-
         # ---------- Top metrics ----------
         n1, n2, n3 = st.columns(3)
         n1.metric("Always-In", always.upper())
