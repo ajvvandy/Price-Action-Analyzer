@@ -9,7 +9,22 @@ st.title("Brooks Price Action Analyzer")
 
 st.write("Upload 5-minute OHLCV CSV to compute Al-Brooks style context and signals. Educational use only.")
 
-uploaded = st.file_uploader("CSV file (columns: Datetime, Open, High, Low, Close, Volume)", type=["csv"])
+import yfinance as yf
+
+st.write("Enter a stock symbol (e.g. AAPL, NVDA, TSLA) or upload your own CSV.")
+
+ticker = st.text_input("Stock Symbol", value="AAPL")
+uploaded = st.file_uploader("Or upload CSV (optional)", type=["csv"])
+
+if ticker and not uploaded:
+    st.info(f"Fetching 5-minute data for {ticker}...")
+    df = yf.download(ticker, period="5d", interval="5m")
+    df = df.reset_index()
+    df = df.rename(columns={"Datetime": "Datetime", "Open": "Open", "High": "High", "Low": "Low", "Close": "Close", "Volume": "Volume"})
+elif uploaded:
+    df = load_csv(uploaded)
+else:
+    df = None
 
 if uploaded is not None:
     try:
