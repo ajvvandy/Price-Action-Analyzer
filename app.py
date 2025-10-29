@@ -245,3 +245,4 @@ if go and symbol:
         st.pyplot(fig)
 
         st.download_button("Download Day Bars CSV", day.to_csv(index=False).encode(), file_name=f"{symbol}_{last_date}_5m.csv", mime="text/csv")
+
