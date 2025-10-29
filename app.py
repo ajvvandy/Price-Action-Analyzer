@@ -464,7 +464,7 @@ setup = recommend_setup(
     always_in=always
 )
 
-        flags = []
+    flags = []
         if always == "bull": flags.append("Always-In Bull")
         elif always == "bear": flags.append("Always-In Bear")
         if overlap >= 0.55: flags.append("Trading-Range Day")
