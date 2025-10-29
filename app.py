@@ -261,10 +261,6 @@ def range_vs_adr(day: pd.DataFrame, hist: pd.DataFrame) -> Tuple[float, Optional
     today_r = float(day["High"].max() - day["Low"].min())
     return today_r, adr
    
-st.subheader("Trading Plan Summary")
-st.markdown(f"**{bias_line}**")
-st.markdown(narrative_text(or_info, by18))
-
 st.markdown("**Setup**")
 st.markdown(f"- **{setup['label']}**")
 st.caption(setup["rationale"])
