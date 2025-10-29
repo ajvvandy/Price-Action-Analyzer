@@ -1,3 +1,4 @@
+from typing import Optional, Tuple, Dict
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -14,7 +15,7 @@ symbol = col1.text_input("Symbol", value="AAPL").strip().upper()
 go = col2.button("Analyze")
 
 # ------------------ Helpers / I/O ------------------
-def normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame | None:
+def normalize_ohlcv(df: pd.DataFrame) -> Optional[pd.DataFrame]:
     if df is None or df.empty:
         return None
     out = df.reset_index().copy()
@@ -22,7 +23,6 @@ def normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame | None:
     if dt_col is None:
         return None
 
-    # Coerce datetimes and drop tz
     out[dt_col] = pd.to_datetime(out[dt_col], errors="coerce")
     try:
         out[dt_col] = out[dt_col].dt.tz_localize(None)
@@ -36,19 +36,18 @@ def normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame | None:
 
     out = out[needed].dropna().sort_values("Datetime").drop_duplicates(subset=["Datetime"])
 
-    # Ensure numeric types (avoid object dtypes from some exports)
     for c in ["Open", "High", "Low", "Close", "Volume"]:
         out[c] = pd.to_numeric(out[c], errors="coerce")
     out = out.dropna(subset=["Open", "High", "Low", "Close"]).reset_index(drop=True)
     return out
 
 @st.cache_data(show_spinner=False, ttl=300)
-def fetch_5m(sym: str) -> pd.DataFrame | None:
+def fetch_5m(sym: str) -> Optional[pd.DataFrame]:
     tries = [("5m", "7d"), ("5m", "30d"), ("15m", "60d")]
     for interval, period in tries:
         try:
-            raw = yf.download(sym, interval=interval, period=period, auto_adjust=False,
-                              progress=False, threads=False)
+            raw = yf.download(sym, interval=interval, period=period,
+                              auto_adjust=False, progress=False, threads=False)
         except Exception:
             continue
         df = normalize_ohlcv(raw)
@@ -73,7 +72,7 @@ def overlap_score(df: pd.DataFrame, window: int = 20) -> pd.Series:
     sc = (0.7 * mid_time.fillna(0) + 0.3 * fail_bo.fillna(0)).clip(0, 1)
     return sc
 
-def microchannel_lengths(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+def microchannel_lengths(df: pd.DataFrame) -> Tuple[pd.Series, pd.Series]:
     """Scalar-safe microchannel counter using NumPy arrays."""
     lows = df["Low"].to_numpy()
     highs = df["High"].to_numpy()
@@ -94,7 +93,7 @@ def microchannel_lengths(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
         bear_run[i] = s
     return pd.Series(bull_run, index=df.index), pd.Series(bear_run, index=df.index)
 
-def always_in(df: pd.DataFrame) -> tuple[str, pd.Series, pd.Series]:
+def always_in(df: pd.DataFrame) -> Tuple[str, pd.Series, pd.Series]:
     """EMA20/EMA50 + two-bar breakout bias. Scalar-safe with NumPy arrays."""
     if len(df) < 3:
         return "neutral", ema(df["Close"], 20), ema(df["Close"], 50)
@@ -129,7 +128,7 @@ def always_in(df: pd.DataFrame) -> tuple[str, pd.Series, pd.Series]:
 
     return direction, ema20, ema50
 
-def bar18_flag(day: pd.DataFrame) -> tuple[bool, dict]:
+def bar18_flag(day: pd.DataFrame) -> Tuple[bool, Dict]:
     n = len(day)
     if n < 20:
         return False, {}
@@ -153,30 +152,30 @@ def bar18_flag(day: pd.DataFrame) -> tuple[bool, dict]:
     }
     return flag, details
 
-def measured_move(day: pd.DataFrame) -> tuple[float | np.nan, float | np.nan]:
+def measured_move(day: pd.DataFrame) -> Tuple[Optional[float], Optional[float]]:
+    """Return (MM_up, MM_down). None means 'no estimate'."""
     if len(day) < 20:
-        return np.nan, np.nan
+        return None, None
     first_hour = day.iloc[:12]
     uptrend = first_hour["Close"].iloc[-1] > first_hour["Open"].iloc[0]
     if uptrend:
         leg = float(first_hour["High"].max() - day["Open"].iloc[0])
-        # guard against empty rolling window
         seg = day.iloc[12:20]
         if seg.empty:
-            return np.nan, np.nan
+            return None, None
         pb_end_idx = seg["Low"].rolling(4).min().idxmin()
-        target = day.loc[pb_end_idx, "Close"] + leg
-        return float(target), np.nan
+        target = float(day.loc[pb_end_idx, "Close"] + leg)
+        return target, None
     else:
         leg = float(day["Open"].iloc[0] - first_hour["Low"].min())
         seg = day.iloc[12:20]
         if seg.empty:
-            return np.nan, np.nan
+            return None, None
         pb_end_idx = seg["High"].rolling(4).max().idxmax()
-        target = day.loc[pb_end_idx, "Close"] - leg
-        return np.nan, float(target)
+        target = float(day.loc[pb_end_idx, "Close"] - leg)
+        return None, target
 
-def opening_range_breakout(day: pd.DataFrame) -> dict | None:
+def opening_range_breakout(day: pd.DataFrame) -> Optional[Dict]:
     if len(day) < 8:
         return None
     orange = day.iloc[:6]  # first 30m
@@ -196,12 +195,12 @@ def opening_range_breakout(day: pd.DataFrame) -> dict | None:
         return {"direction": "down", "level": lo, "follow_through": ft}
     return {"direction": "none", "level": None, "follow_through": None}
 
-def range_vs_adr(day: pd.DataFrame, hist: pd.DataFrame) -> tuple[float, float | np.nan]:
+def range_vs_adr(day: pd.DataFrame, hist: pd.DataFrame) -> Tuple[float, Optional[float]]:
     try:
         adr = (hist["High"] - hist["Low"]).resample("1D").max().dropna().tail(14).mean()
-        adr = float(adr) if pd.notna(adr) else np.nan
+        adr = float(adr) if pd.notna(adr) else None
     except Exception:
-        adr = np.nan
+        adr = None
     today_r = float(day["High"].max() - day["Low"].min())
     return today_r, adr
 
@@ -213,16 +212,13 @@ if go and symbol:
     if df_all is None or df_all.empty:
         st.error("Could not fetch data. Try another symbol or later.")
     else:
-        # pick latest session (by date in data)
         df_all["Date"] = df_all["Datetime"].dt.date
         last_date = df_all["Date"].max()
         day = df_all[df_all["Date"] == last_date].copy()
         if day.empty and len(df_all) > 0:
-            # fallback to last ~US session bars
             day = df_all.tail(78).copy()
         day = day.drop(columns=["Date"])
 
-        # guards
         required_cols = {"Open", "High", "Low", "Close", "Volume", "Datetime"}
         if not required_cols.issubset(set(day.columns)):
             st.error("Missing required columns after fetch. Upload a CSV instead.")
@@ -231,7 +227,6 @@ if go and symbol:
             st.error("Not enough intraday bars to analyze this session.")
             st.stop()
 
-        # Session stats
         o = float(day["Open"].iloc[0])
         c = float(day["Close"].iloc[-1])
         hi = float(day["High"].max())
@@ -240,16 +235,14 @@ if go and symbol:
         pct_to_high = 100 * (hi - c) / c
         pct_to_low = 100 * (c - lo) / c
 
-        # Diagnostics
         always, ema20, ema50 = always_in(day)
-        mc_bull, mc_bear = microchannel_lengths(day)  # <-- fixed: scalar comparisons
-        overlap = float(overlap_score(day, window=24).iloc[-1])  # ~2h window
+        mc_bull, mc_bear = microchannel_lengths(day)
+        overlap = float(overlap_score(day, window=24).iloc[-1])
         bar18, b18d = bar18_flag(day)
         mm_up, mm_dn = measured_move(day)
         or_bo = opening_range_breakout(day)
         today_range, adr14 = range_vs_adr(day, df_all.set_index("Datetime"))
 
-        # Quick labels
         flags = []
         if always == "bull": flags.append("Always-In Bull")
         elif always == "bear": flags.append("Always-In Bear")
@@ -259,12 +252,11 @@ if go and symbol:
         if or_bo and or_bo.get("direction") == "down": flags.append("Opening BO Down")
         if bar18: flags.append("Bar-18 Exhaustion Risk")
 
-        # ----------------------- Output -----------------------
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("% from Open", f"{pct_from_open:.2f}%")
         m2.metric("% to Session High", f"{pct_to_high:.2f}%")
         m3.metric("% to Session Low", f"{pct_to_low:.2f}%")
-        m4.metric("Day Range vs ADR14", f"{today_range:.2f} / {adr14:.2f}" if pd.notna(adr14) else f"{today_range:.2f} / —")
+        m4.metric("Day Range vs ADR14", f"{today_range:.2f} / {adr14:.2f}" if adr14 is not None else f"{today_range:.2f} / —")
 
         n1, n2, n3 = st.columns(3)
         n1.metric("Always-In", always)
@@ -281,10 +273,8 @@ if go and symbol:
         st.json(or_bo if or_bo else {"direction": "none"})
 
         st.subheader("Measured-Move Targets (approx)")
-        st.write({"MM_up": None if pd.isna(mm_up) else float(mm_up),
-                  "MM_down": None if pd.isna(mm_dn) else float(mm_dn)})
+        st.write({"MM_up": mm_up, "MM_down": mm_dn})
 
-        # Table of bar-by-bar basics
         tbl = day.copy()
         tbl["ema20"] = ema20.values
         tbl["ema50"] = ema50.values
@@ -293,7 +283,6 @@ if go and symbol:
         st.subheader("Bars (latest 120)")
         st.dataframe(tbl.tail(120), use_container_width=True)
 
-        # Plot
         st.subheader("Chart (Close with EMA20/50)")
         fig, ax = plt.subplots(figsize=(12, 4))
         ax.plot(day["Datetime"], day["Close"], label="Close")
@@ -302,7 +291,8 @@ if go and symbol:
         ax.set_xlabel("Time"); ax.set_ylabel("Price"); ax.legend(loc="best")
         st.pyplot(fig)
 
-        st.download_button("Download Day Bars CSV",
-                           day.to_csv(index=False).encode(),
-                           file_name=f"{symbol}_{last_date}_5m.csv",
-                           mime="text/csv")
+        st.download_button(
+            "Download Day Bars CSV",
+            day.to_csv(index=False).encode(),
+            file_name=f"{symbol}_{last_date}_5m.csv",
+            mime="text/csv")
