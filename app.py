@@ -309,11 +309,100 @@ if go and symbol:
         if or_bo and or_bo.get("direction") == "down": flags.append("Opening BO Down")
         if bar18: flags.append("Bar-18 Exhaustion Risk")
 
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("% from Open", f"{pct_from_open:.2f}%")
-        m2.metric("% to Session High", f"{pct_to_high:.2f}%")
-        m3.metric("% to Session Low", f"{pct_to_low:.2f}%")
-        m4.metric("Day Range vs ADR14", f"{today_range:.2f} / {adr14:.2f}" if adr14 is not None else f"{today_range:.2f} / —")
+       # ----------------------- Output -----------------------
+# Extra context
+hi_idx = day["High"].idxmax()
+lo_idx = day["Low"].idxmin()
+hi_time = day.loc[hi_idx, "Datetime"]
+lo_time = day.loc[lo_idx, "Datetime"]
+pos_in_range = (c - lo) / (hi - lo) if hi > lo else np.nan  # 0=at low, 1=at high
+pos_pct = None if pd.isna(pos_in_range) else round(float(pos_in_range * 100), 2)
+
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("% from Open", f"{pct_from_open:.2f}%")
+m2.metric("% to Session High", f"{pct_to_high:.2f}%")
+m3.metric("% to Session Low", f"{pct_to_low:.2f}%")
+m4.metric(
+    "Day Range vs ADR14",
+    f"{today_range:.2f} / {adr14:.2f}" if adr14 is not None else f"{today_range:.2f} / —")
+
+n1, n2, n3 = st.columns(3)
+n1.metric("Always-In", always)
+n2.metric("Trading-Range Score (0–1)", f"{overlap:.2f}")
+n3.metric("Microchannel len (bull/bear)", f"{int(mc_bull.iloc[-1])}/{int(mc_bear.iloc[-1])}")
+
+st.subheader("Session Flags")
+st.write(", ".join(flags) if flags else "No special conditions flagged.")
+
+# ---- Brooks-style quick context table ----
+st.subheader("Intraday Context")
+ctx_rows = [
+    ("Session High Time", hi_time.strftime("%H:%M")),
+    ("Session Low Time", lo_time.strftime("%H:%M")),
+    ("Position in Day Range", f"{pos_pct:.2f}%" if pos_pct is not None else "—"),
+]
+if or_bo:
+    dirn = or_bo.get("direction") or "none"
+    lvl = or_bo.get("level")
+    ft = or_bo.get("follow_through")
+    ctx_rows += [
+        ("Opening-Range Breakout", dirn.capitalize()),
+        ("OR Level", f"{lvl:.2f}" if isinstance(lvl, (int, float)) else "—"),
+        ("OR Follow-through", "Yes" if ft is True else ("No" if ft is False else "—")),
+    ]
+
+mm_up_disp = None if mm_up is None else round(float(mm_up), 2)
+mm_dn_disp = None if mm_dn is None else round(float(mm_dn), 2)
+ctx_rows += [
+    ("Measured Move Up", f"{mm_up_disp:.2f}" if mm_up_disp is not None else "—"),
+    ("Measured Move Down", f"{mm_dn_disp:.2f}" if mm_dn_disp is not None else "—"),
+]
+
+b18 = {
+    "bars_considered": b18d.get("bars_considered", "16–20"),
+    "microchannel_len": b18d.get("microchannel_len", 0),
+    "avg_body_pct": b18d.get("avg_body_pct", 0.0),
+    "avg_stretch_vs_ema20": b18d.get("avg_stretch_vs_ema20", 0.0),
+    "flag": bool(bar18),
+}
+
+ctx_df = pd.DataFrame(ctx_rows, columns=["Metric", "Value"])
+st.table(ctx_df)
+
+st.subheader("Bar-18 Heuristic (bars 16–20)")
+b18_show = {
+    "Bars considered": b18["bars_considered"],
+    "Microchannel len": int(b18["microchannel_len"]),
+    "Avg body / bar range": f"{b18['avg_body_pct']:.3f}",
+    "Avg stretch vs EMA20": f"{b18['avg_stretch_vs_ema20']:.4f}",
+    "Exhaustion flag": "Yes" if b18["flag"] else "No",
+}
+st.json(b18_show)
+
+# ---- Bars table ----
+tbl = day.copy()
+tbl["ema20"] = ema20.values
+tbl["ema50"] = ema50.values
+tbl["bull_mc_len"] = mc_bull.values
+tbl["bear_mc_len"] = mc_bear.values
+st.subheader("Bars (latest 120)")
+st.dataframe(tbl.tail(120), use_container_width=True)
+
+# ---- Plot (avoid stray outputs) ----
+st.subheader("Chart (Close with EMA20/50)")
+fig, ax = plt.subplots(figsize=(12, 4))
+ax.plot(day["Datetime"], day["Close"], label="Close")
+ax.plot(day["Datetime"], ema20, label="EMA20")
+ax.plot(day["Datetime"], ema50, label="EMA50")
+ax.set_xlabel("Time"); ax.set_ylabel("Price"); ax.legend(loc="best")
+st.pyplot(fig)
+
+# Download
+st.download_button(
+    "Download Day Bars CSV",
+    day.to_csv(index=False).encode(),
+    file_name=f"{symbol}_{last_date}_5m.csv",
+    mime="text/csv")
 
         n1, n2, n3 = st.columns(3)
         n1.metric("Always-In", always)
