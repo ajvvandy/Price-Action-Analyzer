@@ -4,6 +4,9 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 import matplotlib.pyplot as plt
+from streamlit.components.v1 import html as st_html
+
+
 
 st.set_page_config(page_title="Brooks Price-Action Day Report", layout="wide")
 st.title("Brooks Price-Action Day Report")
@@ -263,6 +266,34 @@ def range_vs_adr(day: pd.DataFrame, hist: pd.DataFrame) -> Tuple[float, Optional
 
 
 # ---------- Narrative + setups helpers ----------
+def tradingview_widget(symbol: str, theme: str = "dark", height: int = 560) -> None:
+    # AAPL -> NASDAQ:AAPL; MSFT -> NASDAQ:MSFT; fallback to uppercase only
+    tv_symbol = f"NASDAQ:{symbol.upper()}" if symbol.upper() not in ("SPY","QQQ","DIA") else symbol.upper()
+    st_html(f"""
+    <div class="tradingview-widget-container" style="height:{height}px;">
+      <div id="tradingview_chart" style="height:{height}px;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      new TradingView.widget({{
+          "width": "100%",
+          "height": {height},
+          "symbol": "{tv_symbol}",
+          "interval": "5",
+          "timezone": "America/New_York",
+          "theme": "{theme}",
+          "style": "1",
+          "locale": "en",
+          "toolbar_bg": "rgba(0,0,0,0)",
+          "enable_publishing": false,
+          "hide_side_toolbar": false,
+          "allow_symbol_change": true,
+          "studies": ["MASimple@tv-basicstudies","MAExp@tv-basicstudies"],
+          "container_id": "tradingview_chart"
+      }});
+      </script>
+    </div>
+    """, height=height)
+
 def bar_number_series(df: pd.DataFrame) -> pd.Series:
     """1-based bar numbers for the session."""
     return pd.Series(np.arange(1, len(df)+1), index=df.index, name="bar")
