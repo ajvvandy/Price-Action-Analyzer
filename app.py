@@ -647,58 +647,7 @@ if go and symbol:
         st.subheader("Session Flags")
         st.write(", ".join(flags) if flags else "No special conditions flagged.")
 
-        # Intraday context
-        st.subheader("Intraday Context")
-        ctx_rows = [
-            ("Session High Time", hi_time.strftime("%H:%M")),
-            ("Session Low Time", lo_time.strftime("%H:%M")),
-            ("Position in Day Range", f"{pos_pct:.2f}%" if pos_pct is not None else "—"),
-        ]
-        if or_bo:
-            dirn = or_bo.get("direction") or "none"
-            lvl = or_bo.get("level")
-            ft = or_bo.get("follow_through")
-            ctx_rows += [
-                ("Opening-Range Breakout", dirn.capitalize()),
-                ("OR Level", f"{lvl:.2f}" if isinstance(lvl, (int, float)) else "—"),
-                ("OR Follow-through", "Yes" if ft is True else ("No" if ft is False else "—")),
-            ]
-        mm_up_disp = None if mm_up is None else round(float(mm_up), 2)
-        mm_dn_disp = None if mm_dn is None else round(float(mm_dn), 2)
-        ctx_rows += [
-            ("Measured Move Up", f"{mm_up_disp:.2f}" if mm_up_disp is not None else "—"),
-            ("Measured Move Down", f"{mm_dn_disp:.2f}" if mm_dn_disp is not None else "—"),
-        ]
-        ctx_df = pd.DataFrame(ctx_rows, columns=["Metric", "Value"])
-        st.table(ctx_df)
-
-        # Bar-18 table
-        st.subheader("Bar-18 Heuristic (bars 16–20)")
-        b18 = {
-            "bars_considered": b18d.get("bars_considered", "16–20"),
-            "microchannel_len": b18d.get("microchannel_len", 0),
-            "avg_body_pct": b18d.get("avg_body_pct", 0.0),
-            "avg_stretch_vs_ema20": b18d.get("avg_stretch_vs_ema20", 0.0),
-            "flag": bool(bar18),
-        }
-        b18_tbl = pd.DataFrame([
-            ("Bars considered", b18["bars_considered"]),
-            ("Microchannel len", str(int(b18["microchannel_len"]))),
-            ("Avg body / bar range", f"{float(b18['avg_body_pct']):.3f}"),
-            ("Avg stretch vs EMA20", f"{float(b18['avg_stretch_vs_ema20']):.4f}"),
-            ("Exhaustion flag", "Yes" if b18["flag"] else "No"),
-        ], columns=["Metric", "Value"])
-        st.table(b18_tbl)
-
-        # Bars table
-        tbl = day.copy()
-        tbl["ema20"] = ema20.values
-        tbl["ema50"] = ema50.values
-        tbl["bull_mc_len"] = mc_bull.values
-        tbl["bear_mc_len"] = mc_bear.values
-        st.subheader("Bars (latest 120)")
-        st.dataframe(tbl.tail(120), use_container_width=True)
-
+        
         # Plot
         st.subheader("Chart (Close with EMA20/50)")
         fig, ax = plt.subplots(figsize=(12, 4))
