@@ -267,6 +267,71 @@ def bar_number_series(df: pd.DataFrame) -> pd.Series:
     """1-based bar numbers for the session."""
     return pd.Series(np.arange(1, len(df)+1), index=df.index, name="bar")
 
+def day_outlook_prediction(overlap: float,
+                           always_in: str,
+                           by18: dict,
+                           or_info: dict,
+                           or_bo: Optional[dict]) -> dict:
+    """
+    Returns {'label': 'Bullish/Range/Bearish', 'bull': p, 'range': p, 'bear': p}
+    Heuristic:
+      - overlap ↑ ⇒ range probability ↑
+      - Always-In tilts trend side
+      - Bar-18 extreme holds tilt toward side opposite the held extreme being broken
+      - OR breakout tilts trend side (if present)
+    """
+    # Start with range probability from overlap, clamp to [0,1]
+    range_prob = float(np.clip(overlap, 0.0, 1.0))
+    trend_pool = 1.0 - range_prob
+
+    bull_prob = 0.5 * trend_pool
+    bear_prob = 0.5 * trend_pool
+
+    # Always-In tilt
+    if always_in == "bull":
+        bull_prob += 0.15 * trend_pool
+        bear_prob -= 0.15 * trend_pool
+    elif always_in == "bear":
+        bear_prob += 0.15 * trend_pool
+        bull_prob -= 0.15 * trend_pool
+
+    # OR breakout tilt
+    if or_bo:
+        if or_bo.get("direction") == "up":
+            bull_prob += 0.10 * trend_pool
+            bear_prob -= 0.10 * trend_pool
+        elif or_bo.get("direction") == "down":
+            bear_prob += 0.10 * trend_pool
+            bull_prob -= 0.10 * trend_pool
+
+    # Bar-18 heuristic tilts
+    if by18.get("enough_bars"):
+        # If morning high is still the day high → bearish tilt
+        if by18.get("high_still_day_high"):
+            bear_prob += 0.12 * trend_pool
+            bull_prob -= 0.12 * trend_pool
+        # If morning low is still the day low → bullish tilt
+        if by18.get("low_still_day_low"):
+            bull_prob += 0.12 * trend_pool
+            bear_prob -= 0.12 * trend_pool
+
+    # Normalize
+    bull_prob = max(0.0, bull_prob)
+    bear_prob = max(0.0, bear_prob)
+    range_prob = max(0.0, range_prob)
+    s = bull_prob + bear_prob + range_prob
+    if s <= 1e-9:
+        bull_prob = bear_prob = 0.0
+        range_prob = 1.0
+        s = 1.0
+    bull_prob /= s; bear_prob /= s; range_prob /= s
+
+    # Label
+    probs = {"Bullish": bull_prob, "Range": range_prob, "Bearish": bear_prob}
+    label = max(probs, key=probs.get)
+    return {"label": label, "bull": bull_prob, "range": range_prob, "bear": bear_prob}
+
+
 def opening_range(day: pd.DataFrame, bars_min: int = 5, bars_max: int = 18) -> dict:
     """Compute opening-range [first N bars] hi/lo and whether current price is inside/outside."""
     n = min(len(day), bars_max)
@@ -451,6 +516,8 @@ if go and symbol:
         mm_up, mm_dn = measured_move(day)
         or_bo = opening_range_breakout(day)
         today_range, adr14 = range_vs_adr(day, df_all.set_index("Datetime"))
+        outlook = day_outlook_prediction(overlap, always, by18, or_info, or_bo)
+
 
         # ---------- Derived context (MUST come before UI) ----------
         or_info = opening_range(day, bars_min=5, bars_max=18)
@@ -536,9 +603,19 @@ if go and symbol:
         )
 
         n1, n2, n3 = st.columns(3)
-        n1.metric("Always-In", always)
-        n2.metric("-Range Score (0–1)", f"{overlap:.2f}")
-        n3.metric("Microchannel len (bull/bear)", f"{int(mc_bull.iloc[-1])}/{int(mc_bear.iloc[-1])}")
+
+        # Always-In
+        n1.metric("Always-In", always.upper())
+
+        # Day Outlook prediction
+        outlook = day_outlook_prediction(overlap, always, by18, or_info, or_bo)
+        n2.metric("Day Outlook", outlook["label"],
+                  delta=f"Bull {outlook['bull']:.0%} • Range {outlook['range']:.0%} • Bear {outlook['bear']:.0%}")
+
+        # Microchannel summary
+        n3.metric("Microchannel len (bull/bear)",
+                  f"{int(mc_bull.iloc[-1])}/{int(mc_bear.iloc[-1])}")
+
 
         # Trading plan summary
         st.subheader("Trading Plan Summary")
