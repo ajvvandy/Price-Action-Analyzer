@@ -18,43 +18,100 @@ go = col2.button("Analyze")
 def normalize_ohlcv(df: pd.DataFrame) -> Optional[pd.DataFrame]:
     if df is None or df.empty:
         return None
-    out = df.reset_index().copy()
-    dt_col = next((c for c in ["Datetime", "Date", "index"] if c in out.columns), None)
-    if dt_col is None:
-        return None
 
+    # 1) If yfinance gave MultiIndex columns like ('Open','AAPL'), flatten to first level.
+    if isinstance(df.columns, pd.MultiIndex):
+        try:
+            df.columns = df.columns.get_level_values(0)
+        except Exception:
+            df.columns = [str(c[0]) if isinstance(c, tuple) and c else str(c) for c in df.columns]
+
+    out = df.reset_index().copy()
+
+    # 2) Find the datetime column robustly
+    # common names after reset_index(): 'Datetime', 'Date', or the index name itself
+    dt_candidates = ["Datetime", "Date", "date", "Index", "index"]
+    dt_col = None
+    for c in out.columns:
+        if str(c) in dt_candidates:
+            dt_col = c
+            break
+    # If nothing matched, but the first column looks like a datetime, use it
+    if dt_col is None:
+        first_col = out.columns[0]
+        if np.issubdtype(pd.Series(out[first_col]).dtype, np.datetime64) or "date" in str(first_col).lower():
+            dt_col = first_col
+
+    if dt_col is None:
+        return None  # cannot identify a datetime column
+
+    # 3) Coerce to timezone-naive datetime
     out[dt_col] = pd.to_datetime(out[dt_col], errors="coerce")
     try:
         out[dt_col] = out[dt_col].dt.tz_localize(None)
     except Exception:
         pass
 
-    out = out.rename(columns={dt_col: "Datetime"})
-    needed = ["Datetime", "Open", "High", "Low", "Close", "Volume"]
-    if not all(c in out.columns for c in needed):
+    # 4) Rename datetime column to exactly 'Datetime'
+    if dt_col != "Datetime":
+        out = out.rename(columns={dt_col: "Datetime"})
+
+    # 5) Ensure required price/volume columns exist (after flattening)
+    # Some feeds use lowercase; normalize names first
+    rename_map = {c: c.title() for c in out.columns}
+    out = out.rename(columns=rename_map)
+
+    required = ["Datetime", "Open", "High", "Low", "Close", "Volume"]
+    missing = [c for c in required if c not in out.columns]
+    # Try alternative common names if missing
+    alt_map = {}
+    for c in missing:
+        lc = c.lower()
+        for col in out.columns:
+            if col.lower() == lc:
+                alt_map[col] = c
+                break
+    if alt_map:
+        out = out.rename(columns=alt_map)
+
+    if not all(c in out.columns for c in required):
         return None
 
-    out = out[needed].dropna().sort_values("Datetime").drop_duplicates(subset=["Datetime"])
+    out = out[required]
 
+    # 6) Enforce numeric types on OHLCV
     for c in ["Open", "High", "Low", "Close", "Volume"]:
         out[c] = pd.to_numeric(out[c], errors="coerce")
-    out = out.dropna(subset=["Open", "High", "Low", "Close"]).reset_index(drop=True)
-    return out
+
+    out = out.dropna(subset=["Datetime", "Open", "High", "Low", "Close"]).sort_values("Datetime")
+
+    # 7) Only de-dup on Datetime if the column truly exists
+    if "Datetime" in out.columns:
+        out = out.drop_duplicates(subset=["Datetime"])
+
+    return out.reset_index(drop=True)
 
 @st.cache_data(show_spinner=False, ttl=300)
 def fetch_5m(sym: str) -> Optional[pd.DataFrame]:
     tries = [("5m", "7d"), ("5m", "30d"), ("15m", "60d")]
+    last_error = None
     for interval, period in tries:
         try:
-            raw = yf.download(sym, interval=interval, period=period,
-                              auto_adjust=False, progress=False, threads=False)
-        except Exception:
+            raw = yf.download(
+                sym, interval=interval, period=period,
+                auto_adjust=False, progress=False, threads=False
+            )
+            df = normalize_ohlcv(raw)
+            if df is not None and not df.empty:
+                df.attrs["interval"] = interval
+                df.attrs["period"] = period
+                return df
+        except Exception as e:
+            last_error = e
             continue
-        df = normalize_ohlcv(raw)
-        if df is not None and not df.empty:
-            df.attrs["interval"] = interval
-            df.attrs["period"] = period
-            return df
+    # Optional: surface a hint to the UI without crashing cache
+    if last_error:
+        st.warning(f"Download/normalize failed for {sym} ({last_error}).")
     return None
 
 def ema(s: pd.Series, n: int) -> pd.Series:
