@@ -688,6 +688,10 @@ if go and symbol:
         ax.set_xlabel("Time"); ax.set_ylabel("Price"); ax.legend(loc="best")
         st.pyplot(fig)
 
+        st.subheader("Interactive Chart (TradingView)")
+        tradingview_widget(symbol)
+
+
         # Download
         st.download_button(
             "Download Day Bars CSV",
