@@ -1,39 +1,32 @@
-# Brooks Price Action Analyzer
+Brooks Price Action Analyzer
 
-An Al-Brooks–style price-action tool for intraday charts that a basic screener cannot replicate.  
-Upload a 5-minute OHLCV CSV and get bar-by-bar context and signals:
+A quantitative interpretation of Al Brooks–style price action, built to extract context that standard screeners cannot.
+This tool ingests 5-minute OHLCV data and computes structural features of intraday behavior—bar-sequence logic, contextual bias, and measured-move projections—rather than indicator overlays.
 
-- Always-In Direction (bull, bear, neutral)
-- Microchannels (len of higher-low or lower-high runs)
-- H1/H2 and B1/B2 pullback markers from swing logic
-- Wedges (three pushes) as exhaustion context
-- Trading-Range score (overlap and failed breakout frequency)
-- Breakout follow-through quality
-- Measured-move target estimates
-- Tradability+ score (0–100) combining context, signal quality, and range penalty
+Overview
 
-**Why this is different from a screener.**  
-It scores **context and expectancy** instead of raw indicator values: microchannel persistence, pullback count quality (H1/H2 vs B1/B2), breakout follow-through rate, range re-entry, and Always-In alignment. Screeners typically cannot encode these bar-sequence patterns.
+Unlike conventional scanners that flag single-bar conditions, the Brooks Analyzer evaluates bar sequences and contextual transitions.
+It interprets each session through the same heuristics used by discretionary price-action traders:
 
-## Quick start
+Always-In Direction — determines session bias (bull/bear/neutral) from bar structure and EMA alignment.
 
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
+Microchannel Detection — counts consecutive higher-lows or lower-highs to assess trend persistence.
 
-Upload a CSV with columns: `Datetime, Open, High, Low, Close, Volume` (5-minute bars).
+H1/H2 / B1/B2 Identification — classifies pullback legs and second-entries based on swing logic.
 
-## Data
+Wedge Recognition — detects three-push exhaustion patterns.
 
-Export intraday data from your trading platform as CSV. Ensure times cover the regular session. The analyzer is timeframe-agnostic but thresholds are tuned for 5-minute.
+Trading-Range Score — quantifies overlap and failed breakout frequency (0 = trend-day, 1 = range-day).
 
-## Notes
+Breakout Follow-Through — evaluates bar-to-bar momentum and pullback depth after range exits.
 
-- Educational and research use only. Not financial advice.
-- Heuristics approximate Al Brooks methods and can be tuned in `brooks_price_action.py`.
-- For 1-minute bars, adjust microchannel and window lengths upward.
+Measured-Move Targets — projects first-leg magnitude for exhaustion analysis.
 
-## Resume line
+Tradability + Score (0 – 100) — composite metric integrating trend strength, range structure, and volatility efficiency.
 
-Built and deployed an Al-Brooks style **Price-Action Analyzer** that derives Always-In direction, microchannels, H1/H2 and B1/B2 setups, wedge and trading-range diagnostics, breakout follow-through probability, and a composite **Tradability+** score from intraday OHLCV; Streamlit app with bar-level signals and measured-move targets.
+Why It’s Different
+
+Screeners measure conditions (e.g., RSI, EMA crossovers).
+This analyzer measures context and expectancy — how bars evolve into structure.
+It captures information screeners can’t express:
+trend maturity (bar 18 exhaustion), quality of pullbacks, frequency of reversals inside ranges, and whether breakouts expand or fail.
