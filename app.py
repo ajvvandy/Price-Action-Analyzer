@@ -309,7 +309,7 @@ if go and symbol:
         if or_bo and or_bo.get("direction") == "down": flags.append("Opening BO Down")
         if bar18: flags.append("Bar-18 Exhaustion Risk")
 
-       # ----------------------- Output -----------------------
+    # ----------------------- Output -----------------------
 # Extra context
 hi_idx = day["High"].idxmax()
 lo_idx = day["Low"].idxmin()
@@ -324,7 +324,8 @@ m2.metric("% to Session High", f"{pct_to_high:.2f}%")
 m3.metric("% to Session Low", f"{pct_to_low:.2f}%")
 m4.metric(
     "Day Range vs ADR14",
-    f"{today_range:.2f} / {adr14:.2f}" if adr14 is not None else f"{today_range:.2f} / —")
+    f"{today_range:.2f} / {adr14:.2f}" if adr14 is not None else f"{today_range:.2f} / —"
+)
 
 n1, n2, n3 = st.columns(3)
 n1.metric("Always-In", always)
@@ -357,7 +358,11 @@ ctx_rows += [
     ("Measured Move Up", f"{mm_up_disp:.2f}" if mm_up_disp is not None else "—"),
     ("Measured Move Down", f"{mm_dn_disp:.2f}" if mm_dn_disp is not None else "—"),
 ]
+ctx_df = pd.DataFrame(ctx_rows, columns=["Metric", "Value"])
+st.table(ctx_df)
 
+# ---- Bar-18 table (no JSON) ----
+st.subheader("Bar-18 Heuristic (bars 16–20)")
 b18 = {
     "bars_considered": b18d.get("bars_considered", "16–20"),
     "microchannel_len": b18d.get("microchannel_len", 0),
@@ -365,19 +370,14 @@ b18 = {
     "avg_stretch_vs_ema20": b18d.get("avg_stretch_vs_ema20", 0.0),
     "flag": bool(bar18),
 }
-
-ctx_df = pd.DataFrame(ctx_rows, columns=["Metric", "Value"])
-st.table(ctx_df)
-
-st.subheader("Bar-18 Heuristic (bars 16–20)")
-b18_show = {
-    "Bars considered": b18["bars_considered"],
-    "Microchannel len": int(b18["microchannel_len"]),
-    "Avg body / bar range": f"{b18['avg_body_pct']:.3f}",
-    "Avg stretch vs EMA20": f"{b18['avg_stretch_vs_ema20']:.4f}",
-    "Exhaustion flag": "Yes" if b18["flag"] else "No",
-}
-st.json(b18_show)
+b18_tbl = pd.DataFrame([
+    ("Bars considered", b18["bars_considered"]),
+    ("Microchannel len", str(int(b18["microchannel_len"]))),
+    ("Avg body / bar range", f"{float(b18['avg_body_pct']):.3f}"),
+    ("Avg stretch vs EMA20", f"{float(b18['avg_stretch_vs_ema20']):.4f}"),
+    ("Exhaustion flag", "Yes" if b18["flag"] else "No"),
+], columns=["Metric", "Value"])
+st.table(b18_tbl)
 
 # ---- Bars table ----
 tbl = day.copy()
@@ -388,7 +388,7 @@ tbl["bear_mc_len"] = mc_bear.values
 st.subheader("Bars (latest 120)")
 st.dataframe(tbl.tail(120), use_container_width=True)
 
-# ---- Plot (avoid stray outputs) ----
+# ---- Plot ----
 st.subheader("Chart (Close with EMA20/50)")
 fig, ax = plt.subplots(figsize=(12, 4))
 ax.plot(day["Datetime"], day["Close"], label="Close")
@@ -397,48 +397,9 @@ ax.plot(day["Datetime"], ema50, label="EMA50")
 ax.set_xlabel("Time"); ax.set_ylabel("Price"); ax.legend(loc="best")
 st.pyplot(fig)
 
-# Download
+# ---- Download ----
 st.download_button(
     "Download Day Bars CSV",
     day.to_csv(index=False).encode(),
     file_name=f"{symbol}_{last_date}_5m.csv",
     mime="text/csv")
-
-        n1, n2, n3 = st.columns(3)
-        n1.metric("Always-In", always)
-        n2.metric("Trading-Range Score (0–1)", f"{overlap:.2f}")
-        n3.metric("Microchannel len (bull/bear)", f"{int(mc_bull.iloc[-1])}/{int(mc_bear.iloc[-1])}")
-
-        st.subheader("Session Flags")
-        st.write(", ".join(flags) if flags else "No special conditions flagged.")
-
-        st.subheader("Bar-18 Heuristic (bars 16–20)")
-        st.json({**b18d, "flag": bool(bar18)})
-
-        st.subheader("Opening-Range Breakout")
-        st.json(or_bo if or_bo else {"direction": "none"})
-
-        st.subheader("Measured-Move Targets (approx)")
-        st.write({"MM_up": mm_up, "MM_down": mm_dn})
-
-        tbl = day.copy()
-        tbl["ema20"] = ema20.values
-        tbl["ema50"] = ema50.values
-        tbl["bull_mc_len"] = mc_bull.values
-        tbl["bear_mc_len"] = mc_bear.values
-        st.subheader("Bars (latest 120)")
-        st.dataframe(tbl.tail(120), use_container_width=True)
-
-        st.subheader("Chart (Close with EMA20/50)")
-        fig, ax = plt.subplots(figsize=(12, 4))
-        ax.plot(day["Datetime"], day["Close"], label="Close")
-        ax.plot(day["Datetime"], ema20, label="EMA20")
-        ax.plot(day["Datetime"], ema50, label="EMA50")
-        ax.set_xlabel("Time"); ax.set_ylabel("Price"); ax.legend(loc="best")
-        st.pyplot(fig)
-
-        st.download_button(
-            "Download Day Bars CSV",
-            day.to_csv(index=False).encode(),
-            file_name=f"{symbol}_{last_date}_5m.csv",
-            mime="text/csv")
