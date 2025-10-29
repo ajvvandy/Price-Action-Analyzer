@@ -260,10 +260,7 @@ def range_vs_adr(day: pd.DataFrame, hist: pd.DataFrame) -> Tuple[float, Optional
         adr = None
     today_r = float(day["High"].max() - day["Low"].min())
     return today_r, adr
-   
-st.markdown("**Setup**")
-st.markdown(f"- **{setup['label']}**")
-st.caption(setup["rationale"])
+
 
 # ---------- Narrative + setups helpers ----------
 def bar_number_series(df: pd.DataFrame) -> pd.Series:
