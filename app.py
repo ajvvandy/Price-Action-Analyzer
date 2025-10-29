@@ -470,6 +470,9 @@ setup = recommend_setup(
     mc_bear_last=int(mc_bear.iloc[-1]),
     always_in=always)
 
+st.subheader("Trading Plan Summary")
+st.markdown(f"**{bias_line}**")
+
 # Flags
 flags = []
 if always == "bull":
@@ -490,40 +493,6 @@ if bar18:
         
 
 
-
-        # Derived context for narrative
-or_info = opening_range(day, bars_min=5, bars_max=18)
-by18 = hi_lo_by_bar18(day)
-bias_line = simple_bias(always, overlap, or_info["status"])
-setup = recommend_setup(
-    day=day,
-    or_info=or_info,
-    by18=by18,
-    mc_bull_last=int(mc_bull.iloc[-1]),
-    mc_bear_last=int(mc_bear.iloc[-1]),
-    always_in=always
-)
-
-# Flags (no extra leading spaces)
-flags = []
-if always == "bull":
-    flags.append("Always-In Bull")
-elif always == "bear":
-    flags.append("Always-In Bear")
-
-if overlap >= 0.55:
-    flags.append("Trading-Range Day")
-
-if max(int(mc_bull.iloc[-1]), int(mc_bear.iloc[-1])) >= 6:
-    flags.append("Microchannel ≥6")
-
-if or_bo and or_bo.get("direction") == "up":
-    flags.append("Opening BO Up")
-elif or_bo and or_bo.get("direction") == "down":
-    flags.append("Opening BO Down")
-
-if bar18:
-    flags.append("Bar-18 Exhaustion Risk")
     # ----------------------- Output -----------------------
 # Extra context
 hi_idx = day["High"].idxmax()
