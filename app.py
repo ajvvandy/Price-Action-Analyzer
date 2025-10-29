@@ -451,6 +451,19 @@ if go and symbol:
         or_bo = opening_range_breakout(day)
         today_range, adr14 = range_vs_adr(day, df_all.set_index("Datetime"))
 
+        # Derived context for narrative
+or_info = opening_range(day, bars_min=5, bars_max=18)
+by18 = hi_lo_by_bar18(day)
+bias_line = simple_bias(always, overlap, or_info["status"])
+setup = recommend_setup(
+    day=day,
+    or_info=or_info,
+    by18=by18,
+    mc_bull_last=int(mc_bull.iloc[-1]),
+    mc_bear_last=int(mc_bear.iloc[-1]),
+    always_in=always
+)
+
         flags = []
         if always == "bull": flags.append("Always-In Bull")
         elif always == "bear": flags.append("Always-In Bear")
