@@ -76,19 +76,32 @@ def microchannel_lengths(df):
 
 def always_in(df):
     """Heuristic: EMA20 vs EMA50 + breakout follow-through bias."""
-    ema20, ema50 = ema(df["Close"],20), ema(df["Close"],50)
-    dirn = "neutral"
+    ema20, ema50 = ema(df["Close"], 20), ema(df["Close"], 50)
+    direction = "neutral"
+
     for i in range(2, len(df)):
-        c = df["Close"].iloc[i]
-        bo_up = c > df["High"].iloc[i-1] and df["Close"].iloc[i-1] > df["High"].iloc[i-2]
-        bo_dn = c < df["Low"].iloc[i-1]  and df["Close"].iloc[i-1]  < df["Low"].iloc[i-2]
-        if bo_up and c > ema50.iloc[i]: dirn = "bull"
-        elif bo_dn and c < ema50.iloc[i]: dirn = "bear"
+        c = float(df["Close"].iat[i])
+        h1 = float(df["High"].iat[i-1])
+        h2 = float(df["High"].iat[i-2])
+        l1 = float(df["Low"].iat[i-1])
+        l2 = float(df["Low"].iat[i-2])
+        c1 = float(df["Close"].iat[i-1])
+        ema50_now = float(ema50.iat[i])
+
+        bo_up = (c > h1) and (c1 > h2)
+        bo_dn = (c < l1) and (c1 < l2)
+
+        if bo_up and c > ema50_now:
+            direction = "bull"
+        elif bo_dn and c < ema50_now:
+            direction = "bear"
         else:
-            # trend maintenance
-            if dirn=="bull" and c < ema50.iloc[i]: dirn = "neutral"
-            if dirn=="bear" and c > ema50.iloc[i]: dirn = "neutral"
-    return dirn, ema20, ema50
+            if direction == "bull" and c < ema50_now:
+                direction = "neutral"
+            if direction == "bear" and c > ema50_now:
+                direction = "neutral"
+
+    return direction, ema20, ema50
 
 def bar18_flag(day):
     """
