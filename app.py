@@ -464,15 +464,26 @@ setup = recommend_setup(
     always_in=always
 )
 
-    flags = []
-        if always == "bull": flags.append("Always-In Bull")
-        elif always == "bear": flags.append("Always-In Bear")
-        if overlap >= 0.55: flags.append("Trading-Range Day")
-        if max(int(mc_bull.iloc[-1]), int(mc_bear.iloc[-1])) >= 6: flags.append("Microchannel ≥6")
-        if or_bo and or_bo.get("direction") == "up": flags.append("Opening BO Up")
-        if or_bo and or_bo.get("direction") == "down": flags.append("Opening BO Down")
-        if bar18: flags.append("Bar-18 Exhaustion Risk")
+# Flags (no extra leading spaces)
+flags = []
+if always == "bull":
+    flags.append("Always-In Bull")
+elif always == "bear":
+    flags.append("Always-In Bear")
 
+if overlap >= 0.55:
+    flags.append("Trading-Range Day")
+
+if max(int(mc_bull.iloc[-1]), int(mc_bear.iloc[-1])) >= 6:
+    flags.append("Microchannel ≥6")
+
+if or_bo and or_bo.get("direction") == "up":
+    flags.append("Opening BO Up")
+elif or_bo and or_bo.get("direction") == "down":
+    flags.append("Opening BO Down")
+
+if bar18:
+    flags.append("Bar-18 Exhaustion Risk")
     # ----------------------- Output -----------------------
 # Extra context
 hi_idx = day["High"].idxmax()
