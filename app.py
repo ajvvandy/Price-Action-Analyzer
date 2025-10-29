@@ -75,33 +75,48 @@ def microchannel_lengths(df):
     return pd.Series(bull_run, index=df.index), pd.Series(bear_run, index=df.index)
 
 def always_in(df):
-    """Heuristic: EMA20 vs EMA50 + breakout follow-through bias."""
-    ema20, ema50 = ema(df["Close"], 20), ema(df["Close"], 50)
+    """
+    Heuristic: EMA20 vs EMA50 + breakout-follow-through bias.
+    Uses NumPy arrays for scalar-safe comparisons.
+    """
+    if len(df) < 3:
+        # not enough bars to infer anything
+        return "neutral", ema(df["Close"], 20), ema(df["Close"], 50)
+
+    ema20 = ema(df["Close"], 20)
+    ema50 = ema(df["Close"], 50)
+
+    # Convert once → scalar-safe indexing
+    close = df["Close"].to_numpy()
+    high  = df["High"].to_numpy()
+    low   = df["Low"].to_numpy()
+    ema50_arr = ema50.to_numpy()
+
     direction = "neutral"
 
-    for i in range(2, len(df)):
-        c = float(df["Close"].iat[i])
-        h1 = float(df["High"].iat[i-1])
-        h2 = float(df["High"].iat[i-2])
-        l1 = float(df["Low"].iat[i-1])
-        l2 = float(df["Low"].iat[i-2])
-        c1 = float(df["Close"].iat[i-1])
-        ema50_now = float(ema50.iat[i])
+    for i in range(2, len(close)):
+        c  = float(close[i])
+        h1 = float(high[i-1]); h2 = float(high[i-2])
+        l1 = float(low[i-1]);  l2 = float(low[i-2])
+        c1 = float(close[i-1])
+        e50 = float(ema50_arr[i])
 
+        # two-bar breakout checks (Brooks-style)
         bo_up = (c > h1) and (c1 > h2)
         bo_dn = (c < l1) and (c1 < l2)
 
-        if bo_up and c > ema50_now:
+        if bo_up and c > e50:
             direction = "bull"
-        elif bo_dn and c < ema50_now:
+        elif bo_dn and c < e50:
             direction = "bear"
         else:
-            if direction == "bull" and c < ema50_now:
+            if direction == "bull" and c < e50:
                 direction = "neutral"
-            if direction == "bear" and c > ema50_now:
+            elif direction == "bear" and c > e50:
                 direction = "neutral"
 
     return direction, ema20, ema50
+
 
 def bar18_flag(day):
     """
