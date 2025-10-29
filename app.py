@@ -261,6 +261,157 @@ def range_vs_adr(day: pd.DataFrame, hist: pd.DataFrame) -> Tuple[float, Optional
     today_r = float(day["High"].max() - day["Low"].min())
     return today_r, adr
 
+# ---------- Narrative + setups helpers ----------
+def bar_number_series(df: pd.DataFrame) -> pd.Series:
+    """1-based bar numbers for the session."""
+    return pd.Series(np.arange(1, len(df)+1), index=df.index, name="bar")
+
+def opening_range(day: pd.DataFrame, bars_min: int = 5, bars_max: int = 18) -> dict:
+    """Compute opening-range [first N bars] hi/lo and whether current price is inside/outside."""
+    n = min(len(day), bars_max)
+    n = max(n, bars_min)
+    or_df = day.iloc[:n]
+    hi = float(or_df["High"].max())
+    lo = float(or_df["Low"].min())
+    mid = (hi + lo) / 2.0
+    last = float(day["Close"].iloc[-1])
+    status = "inside"
+    if last > hi: status = "above"
+    elif last < lo: status = "below"
+    return {"bars": n, "high": hi, "low": lo, "mid": mid, "status": status}
+
+def hi_lo_by_bar18(day: pd.DataFrame) -> dict:
+    """
+    Brooks heuristic: by ~bar 18 the day has usually printed its high or low.
+    We report what the extreme was at bar 18 and whether it held so far.
+    """
+    if len(day) < 18:
+        return {"enough_bars": False}
+    bnums = bar_number_series(day)
+    cut = day[bnums <= 18]
+    hi18 = float(cut["High"].max())
+    lo18 = float(cut["Low"].min())
+    # so-far extremes at the latest bar
+    hi_now = float(day["High"].max())
+    lo_now = float(day["Low"].min())
+    hi_held = abs(hi18 - hi_now) < 1e-9  # still the day high
+    lo_held = abs(lo18 - lo_now) < 1e-9  # still the day low
+    return {
+        "enough_bars": True,
+        "high_at18": hi18, "low_at18": lo18,
+        "high_still_day_high": hi_held,
+        "low_still_day_low": lo_held
+    }
+
+def simple_bias(always_in: str, tr_score: float, or_status: str) -> str:
+    """Combine Always-In, range score, and OR status into a single bias line."""
+    if tr_score <= 0.25:
+        ctx = "trend conditions"
+    elif tr_score >= 0.75:
+        ctx = "range conditions"
+    else:
+        ctx = "mixed conditions"
+    if or_status == "above":
+        or_clause = "trading above the opening range"
+    elif or_status == "below":
+        or_clause = "trading below the opening range"
+    else:
+        or_clause = "inside the opening range"
+    return f"Bias: {always_in.upper()} under {ctx}, currently {or_clause}."
+
+def recommend_setup(day: pd.DataFrame,
+                    or_info: dict,
+                    by18: dict,
+                    mc_bull_last: int,
+                    mc_bear_last: int,
+                    always_in: str) -> dict:
+    """
+    Return {'label': ..., 'rationale': ...} or a 'no-setup' suggestion.
+    Rules (Brooks-flavored heuristics):
+      1) Trend pullback: strong Always-In + price just broke OR and pulls back near OR edge.
+      2) Bar18 fade: by18 printed an extreme that is still holding; enter pullback toward that extreme.
+      3) Failed breakout: price poked OR and re-entered → fade back to OR mid.
+    """
+    last_close = float(day["Close"].iloc[-1])
+    # 1) Trend pullback off OR edge
+    if always_in == "bull" and or_info["status"] == "above":
+        if abs(last_close - or_info["high"]) <= 0.25 * (or_info["high"] - or_info["low"]):
+            return {
+                "label": "Buy pullback above OR high",
+                "rationale": "Always-In bull with OR breakout; pulling back toward OR high acts as support."
+            }
+    if always_in == "bear" and or_info["status"] == "below":
+        if abs(last_close - or_info["low"]) <= 0.25 * (or_info["high"] - or_info["low"]):
+            return {
+                "label": "Sell pullback below OR low",
+                "rationale": "Always-In bear with OR breakout; pulling back toward OR low acts as resistance."
+            }
+
+    # 2) Bar-18 fade of the extreme that is still holding
+    if by18.get("enough_bars"):
+        rng = float(day["High"].max() - day["Low"].min())
+        if rng > 0:
+            # Near the low at 18 and low is still the day low → buy PB
+            if by18.get("low_still_day_low") and abs(last_close - by18["low_at18"]) <= 0.2 * rng:
+                return {
+                    "label": "Buy pullback at morning low (Bar-18 hold)",
+                    "rationale": "By Bar 18 the session often sets an extreme; low from Bar 18 still holds."
+                }
+            # Near the high at 18 and high is still the day high → sell PB
+            if by18.get("high_still_day_high") and abs(last_close - by18["high_at18"]) <= 0.2 * rng:
+                return {
+                    "label": "Sell pullback at morning high (Bar-18 hold)",
+                    "rationale": "By Bar 18 the session often sets an extreme; high from Bar 18 still holds."
+                }
+
+    # 3) Failed OR breakout re-entry
+    # If price is back inside OR after being above/below earlier, fade to OR mid.
+    last_status = or_info["status"]
+    # reconstruct whether we were outside earlier: check any close > OR high or < OR low
+    or_hi, or_lo = or_info["high"], or_info["low"]
+    was_above = (day["Close"] > or_hi).any()
+    was_below = (day["Close"] < or_lo).any()
+    if last_status == "inside" and (was_above or was_below):
+        return {
+            "label": "Fade failed OR breakout toward OR mid",
+            "rationale": "Breakout failed and price re-entered the range; mean reversion toward OR midpoint."
+        }
+
+    # Microchannel exhaustion hint
+    if mc_bull_last >= 6:
+        return {
+            "label": "Wait for two-leg pullback after bull microchannel",
+            "rationale": "Extended bull microchannel suggests exhaustion; higher-probability after two-leg PB."
+        }
+    if mc_bear_last >= 6:
+        return {
+            "label": "Wait for two-leg pullback after bear microchannel",
+            "rationale": "Extended bear microchannel suggests exhaustion; higher-probability after two-leg PB."
+        }
+
+    return {"label": "No high-probability setup", "rationale": "Conditions lack clear edge under current rules."}
+
+def narrative_text(or_info: dict, by18: dict) -> str:
+    """Plain-English primer you described, with current session facts filled in."""
+    lines = []
+    lines.append("The market open sets the initial bias. The opening range is the first several bars (≈5–18).")
+    lines.append("It marks the initial battle between bulls and bears; its high/low act as intraday S/R.")
+    lines.append("")
+    lines.append("Opening Range facts today:")
+    lines.append(f"• Bars counted: {or_info['bars']}  • High: {or_info['high']:.2f}  • Low: {or_info['low']:.2f}")
+    lines.append(f"• Price is currently {or_info['status']} the opening range.")
+    lines.append("• Breakouts from this range often indicate a trend; failed breakouts often reverse.")
+    if by18.get("enough_bars"):
+        hi_hold = "still the day high" if by18["high_still_day_high"] else "not the current day high"
+        lo_hold = "still the day low" if by18["low_still_day_low"] else "not the current day low"
+        lines.append("")
+        lines.append("Bar 18 heuristic:")
+        lines.append(f"• High by Bar 18: {by18['high_at18']:.2f} ({hi_hold})")
+        lines.append(f"• Low by Bar 18: {by18['low_at18']:.2f} ({lo_hold})")
+        lines.append("• If price approaches that extreme and it holds, fading via a pullback can be reasonable.")
+    return "\n".join(lines)
+
+
 # ----------------------- Analysis -----------------------
 if go and symbol:
     with st.spinner(f"Fetching {symbol} 5-minute data…"):
