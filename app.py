@@ -9,64 +9,58 @@ from streamlit.components.v1 import html as st_html
 # ==== PAGE CONFIG MUST BE FIRST ====
 st.set_page_config(page_title="Brooks Price-Action Day Report", layout="centered")
 
-# ==== LOAD MINIMAL TIMES THEME ====
-with open(".devcontainer/minimal-times.css", "r", encoding="utf-8") as f:
-    st.markdown(f"<style>{f.read()}</style><div id='style-proof'>STYLE APPLIED</div>", unsafe_allow_html=True)
+# ==== MINIMAL THEME LOADER (single source of truth) ====
+import os, textwrap
 
-st.markdown("""
-<style>
-/* ===== Minimal Times New Roman theme (global) ===== */
-:root, html, body, [data-testid="stAppViewContainer"] * {
-  font-family: 'Times New Roman', Times, serif !important;
-  color: #000000 !important;
-}
-.stApp { background-color: #ffffff !important; }
+def _inject_css(css_text: str, proof: str) -> None:
+    st.markdown(
+        f"<style>{css_text}</style><div id='style-proof'>STYLE APPLIED ({proof})</div>",
+        unsafe_allow_html=True,
+    )
 
-/* Centered, narrow content */
-.block-container{
-  max-width: 900px !important;
-  margin: 0 auto !important;
-  padding-top: 1rem !important;
-  padding-bottom: 1rem !important;
-}
+def _default_minimal_css() -> str:
+    return textwrap.dedent("""
+    /* ===== Minimal Times New Roman Theme ===== */
+    #style-proof { 
+      font-family: 'Times New Roman', serif !important; 
+      color: #000 !important; text-align:center; margin: 6px 0 2px 0; font-size: 14px;
+    }
+    html, body, [data-testid="stAppViewContainer"], .stApp, .stMarkdown, .stText, .stPlotlyChart, .stAltairChart, .stMetric,
+    [data-testid="stMarkdownContainer"], [data-testid="stHeader"], [data-testid="stToolbar"] * {
+        font-family: 'Times New Roman', serif !important;
+        color: #000000 !important;
+    }
+    .stApp { background-color: #ffffff !important; }
+    .block-container { max-width: 900px !important; margin: 0 auto !important; padding-top: 1rem !important; padding-bottom: 1rem !important; }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Times New Roman', serif !important; color: #000 !important; font-weight: 600 !important;
+        text-align: center !important; margin: 0.5rem 0 0.75rem 0 !important;
+    }
+    p, li, div, span { font-size: 1.05rem !important; line-height: 1.55rem !important; }
+    .card { background: transparent !important; border: none !important; box-shadow: none !important; padding: .5rem 0; }
+    [data-testid="stMetricValue"] { font-size: 1.3rem !important; font-weight: 500 !important; }
+    input, textarea { font-family: 'Times New Roman', serif !important; color: #000 !important; }
+    .stButton button, .analyze-btn button, div.stButton > button {
+        background-color: #000 !important; color: #fff !important; border: none !important; border-radius: 0 !important;
+        font-family: 'Times New Roman', serif !important; font-weight: 600 !important; font-size: 1rem !important;
+        letter-spacing: .5px !important; padding: .6rem 1.2rem !important;
+    }
+    .stButton button:hover, .analyze-btn button:hover, div.stButton > button:hover { background-color: #222 !important; }
+    table { border-collapse: collapse !important; margin-top: 1rem !important; }
+    th, td { border: none !important; padding: .4rem .6rem !important; text-align: left !important; }
+    header, footer { visibility: hidden !important; }
+    """)
 
-/* Headings */
-h1,h2,h3,h4,h5,h6{
-  font-weight: 600 !important;
-  text-align: center !important;
-  margin: .5rem 0 .75rem 0 !important;
-}
+def load_minimal_theme():
+    # Try repo paths in order
+    for path in (".devcontainer/minimal-times.css", "minimal-times.css"):
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                _inject_css(f.read(), f"file:{path}")
+            return
+    _inject_css(_default_minimal_css(), "inline-default")
 
-/* Paragraphs & lists */
-p,li,div,span{
-  font-size: 1.05rem !important;
-  line-height: 1.55rem !important;
-}
-
-/* Buttons: black bg, white text */
-.stButton button, div.stButton > button{
-  background-color:#000000 !important;
-  color:#ffffff !important;
-  border:none !important;
-  border-radius:0 !important;
-  font-weight:600 !important;
-  letter-spacing:.5px !important;
-  padding:.6rem 1.2rem !important;
-}
-.stButton button:hover, div.stButton > button:hover{
-  background-color:#222222 !important;
-}
-
-/* Metric value size */
-[data-testid="stMetricValue"]{
-  font-size:1.3rem !important;
-  font-weight:500 !important;
-}
-
-/* Hide Streamlit chrome for minimal look */
-header, footer { visibility: hidden !important; }
-</style>
-""", unsafe_allow_html=True)
+load_minimal_theme()
 
 
 # ==== Title AFTER CSS ====
