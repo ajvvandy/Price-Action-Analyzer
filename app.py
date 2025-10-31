@@ -6,92 +6,82 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 from streamlit.components.v1 import html as st_html
 
+st.set_page_config(page_title="Brooks Price-Action Day Report", layout="centered")
+
 st.markdown("""
 <style>
-/* Minimalist aesthetic */
-.stApp {
-    background-color: #ffffff !important;    /* pure white */
-    color: #000000 !important;               /* black text */
+/* Global font + colors (very strong selectors) */
+html, body, [data-testid="stAppViewContainer"], .stApp, .stMarkdown, .stText, .stPlotlyChart, .stAltairChart, .stMetric,
+[data-testid="stMarkdownContainer"], [data-testid="stHeader"], [data-testid="stToolbar"] * {
     font-family: 'Times New Roman', serif !important;
+    color: #000000 !important;
 }
+.stApp { background-color: #ffffff !important; }
 
-/* Remove default padding around main container */
+/* Container width & centering */
 .block-container {
+    max-width: 900px !important;
+    margin: 0 auto !important;
     padding-top: 1rem !important;
     padding-bottom: 1rem !important;
-    max-width: 900px !important;
-    margin: auto !important;
 }
 
-/* Titles and headers */
-h1, h2, h3, h4 {
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
     font-family: 'Times New Roman', serif !important;
-    font-weight: 600 !important;
     color: #000000 !important;
+    font-weight: 600 !important;
     text-align: center !important;
+    margin: 0.5rem 0 0.75rem 0 !important;
 }
 
-/* Subtle line spacing for readability */
+/* Paragraph & lists */
 p, li, div, span {
-    font-family: 'Times New Roman', serif !important;
     font-size: 1.05rem !important;
     line-height: 1.55rem !important;
 }
 
-/* Cards and boxes (flat, no borders) */
-.card {
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0.5rem 0;
-}
+/* Cards (flat/minimal) */
+.card { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0.5rem 0; }
 
-/* Metrics and labels */
-[data-testid="stMetricValue"] {
+/* Metrics */
+[data-testid="stMetricValue"] { font-size: 1.3rem !important; font-weight: 500 !important; }
+
+/* Inputs */
+input, textarea {
     font-family: 'Times New Roman', serif !important;
-    font-weight: 500 !important;
-    font-size: 1.3rem !important;
     color: #000000 !important;
 }
 
-/* Button styling */
-.stButton button {
+/* Analyze button: black background, white text */
+.stButton button, .analyze-btn button, div.stButton > button {
     background-color: #000000 !important;
     color: #ffffff !important;
-    border-radius: 0px !important;
     border: none !important;
+    border-radius: 0px !important;
     font-family: 'Times New Roman', serif !important;
-    font-size: 1rem !important;
     font-weight: 600 !important;
-    letter-spacing: 0.5px;
-    padding: 0.6rem 1.2rem;
+    font-size: 1rem !important;
+    letter-spacing: 0.5px !important;
+    padding: 0.6rem 1.2rem !important;
 }
-.stButton button:hover {
+.stButton button:hover, .analyze-btn button:hover, div.stButton > button:hover {
     background-color: #222222 !important;
 }
 
 /* Tables */
-table {
-    border-collapse: collapse !important;
-    margin-top: 1rem !important;
-}
-th, td {
-    border: none !important;
-    padding: 0.4rem 0.6rem !important;
-    text-align: left !important;
-}
+table { border-collapse: collapse !important; margin-top: 1rem !important; }
+th, td { border: none !important; padding: 0.4rem 0.6rem !important; text-align: left !important; }
 
-/* Hide Streamlit header/footer elements */
-header, footer {visibility: hidden !important;}
+/* Hide Streamlit default header/footer chrome for minimal look */
+header, footer { visibility: hidden !important; }
 </style>
 """, unsafe_allow_html=True)
 
 
 
 
-st.set_page_config(page_title="Brooks Price-Action Day Report", layout="wide")
-st.title("Brooks Price-Action Day Report")
-st.caption("Enter a ticker. App fetches recent 5-minute data and summarizes Brooks-style context. Educational use only.")
+
 
 # ----------------------- UI -----------------------
 col1, col2 = st.columns([2, 1])
@@ -766,8 +756,10 @@ if go and symbol:
         ax.set_xlabel("Time"); ax.set_ylabel("Price"); ax.legend(loc="best")
         st.pyplot(fig)
 
+       # Interactive chart (TradingView)
         st.subheader("Interactive Chart (TradingView)")
-        tradingview_widget(symbol)
+        tradingview_widget(symbol, theme="light")
+
 
 
         # Download
