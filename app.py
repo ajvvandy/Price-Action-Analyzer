@@ -9,86 +9,61 @@ from streamlit.components.v1 import html as st_html
 # ==== PAGE CONFIG MUST BE FIRST ====
 st.set_page_config(page_title="Brooks Price-Action Day Report", layout="centered")
 
-# ==== HARD OVERRIDE THEME + FONTS + BUTTONS ====
 st.markdown("""
-<style id="minimal-times">
-/* Visual proof this CSS loaded */
-#style-proof { 
-  font-family: 'Times New Roman', serif !important; 
-  color: #000 !important; 
-  text-align:center; 
-  margin: 6px 0 2px 0;
-  font-size: 14px;
-}
-
-/* Global font + colors (very strong selectors) */
-html, body, [data-testid="stAppViewContainer"], .stApp, .stMarkdown, .stText, .stMetric,
-[data-testid="stMarkdownContainer"], [data-testid="stHeader"], [data-testid="stToolbar"] * {
-    font-family: 'Times New Roman', serif !important;
-    color: #000000 !important;
+<style>
+/* ===== Minimal Times New Roman theme (global) ===== */
+:root, html, body, [data-testid="stAppViewContainer"] * {
+  font-family: 'Times New Roman', Times, serif !important;
+  color: #000000 !important;
 }
 .stApp { background-color: #ffffff !important; }
 
-/* Container width & centering */
-.block-container {
-    max-width: 900px !important;
-    margin: 0 auto !important;
-    padding-top: 1rem !important;
-    padding-bottom: 1rem !important;
+/* Centered, narrow content */
+.block-container{
+  max-width: 900px !important;
+  margin: 0 auto !important;
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
 }
 
 /* Headings */
-h1, h2, h3, h4, h5, h6 {
-    font-family: 'Times New Roman', serif !important;
-    color: #000000 !important;
-    font-weight: 600 !important;
-    text-align: center !important;
-    margin: 0.5rem 0 0.75rem 0 !important;
+h1,h2,h3,h4,h5,h6{
+  font-weight: 600 !important;
+  text-align: center !important;
+  margin: .5rem 0 .75rem 0 !important;
 }
 
-/* Body text */
-p, li, div, span {
-    font-size: 1.05rem !important;
-    line-height: 1.55rem !important;
+/* Paragraphs & lists */
+p,li,div,span{
+  font-size: 1.05rem !important;
+  line-height: 1.55rem !important;
 }
 
-/* Minimal cards */
-.card { background: transparent !important; border: none !important; box-shadow: none !important; padding: .5rem 0; }
-
-/* Metrics */
-[data-testid="stMetricValue"] { font-size: 1.3rem !important; font-weight: 500 !important; }
-
-/* Inputs */
-input, textarea {
-    font-family: 'Times New Roman', serif !important;
-    color: #000000 !important;
+/* Buttons: black bg, white text */
+.stButton button, div.stButton > button{
+  background-color:#000000 !important;
+  color:#ffffff !important;
+  border:none !important;
+  border-radius:0 !important;
+  font-weight:600 !important;
+  letter-spacing:.5px !important;
+  padding:.6rem 1.2rem !important;
+}
+.stButton button:hover, div.stButton > button:hover{
+  background-color:#222222 !important;
 }
 
-/* Analyze button — white text on black */
-.stButton button, .analyze-btn button, div.stButton > button, button[kind="primary"] {
-    background-color: #000000 !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 0 !important;
-    font-family: 'Times New Roman', serif !important;
-    font-weight: 600 !important;
-    font-size: 1rem !important;
-    letter-spacing: 0.5px !important;
-    padding: 0.6rem 1.2rem !important;
-}
-.stButton button:hover, .analyze-btn button:hover, div.stButton > button:hover, button[kind="primary"]:hover {
-    background-color: #222222 !important;
+/* Metric value size */
+[data-testid="stMetricValue"]{
+  font-size:1.3rem !important;
+  font-weight:500 !important;
 }
 
-/* Tables */
-table { border-collapse: collapse !important; margin-top: 1rem !important; }
-th, td { border: none !important; padding: 0.4rem 0.6rem !important; text-align: left !important; }
-
-/* Hide streamlit chrome for minimal look */
+/* Hide Streamlit chrome for minimal look */
 header, footer { visibility: hidden !important; }
 </style>
-<div id="style-proof">STYLE APPLIED</div>
 """, unsafe_allow_html=True)
+
 
 # ==== Title AFTER CSS ====
 st.markdown("<h1>Brooks Price-Action Day Report</h1>", unsafe_allow_html=True)
