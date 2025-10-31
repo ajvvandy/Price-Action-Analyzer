@@ -9,6 +9,10 @@ from streamlit.components.v1 import html as st_html
 # ==== PAGE CONFIG MUST BE FIRST ====
 st.set_page_config(page_title="Brooks Price-Action Day Report", layout="centered")
 
+# ==== LOAD MINIMAL TIMES THEME ====
+with open(".devcontainer/minimal-times.css", "r", encoding="utf-8") as f:
+    st.markdown(f"<style>{f.read()}</style><div id='style-proof'>STYLE APPLIED</div>", unsafe_allow_html=True)
+
 st.markdown("""
 <style>
 /* ===== Minimal Times New Roman theme (global) ===== */
