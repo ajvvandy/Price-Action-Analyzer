@@ -6,6 +6,87 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 from streamlit.components.v1 import html as st_html
 
+st.markdown("""
+<style>
+/* Minimalist aesthetic */
+.stApp {
+    background-color: #ffffff !important;    /* pure white */
+    color: #000000 !important;               /* black text */
+    font-family: 'Times New Roman', serif !important;
+}
+
+/* Remove default padding around main container */
+.block-container {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+    max-width: 900px !important;
+    margin: auto !important;
+}
+
+/* Titles and headers */
+h1, h2, h3, h4 {
+    font-family: 'Times New Roman', serif !important;
+    font-weight: 600 !important;
+    color: #000000 !important;
+    text-align: center !important;
+}
+
+/* Subtle line spacing for readability */
+p, li, div, span {
+    font-family: 'Times New Roman', serif !important;
+    font-size: 1.05rem !important;
+    line-height: 1.55rem !important;
+}
+
+/* Cards and boxes (flat, no borders) */
+.card {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0.5rem 0;
+}
+
+/* Metrics and labels */
+[data-testid="stMetricValue"] {
+    font-family: 'Times New Roman', serif !important;
+    font-weight: 500 !important;
+    font-size: 1.3rem !important;
+    color: #000000 !important;
+}
+
+/* Button styling */
+.stButton button {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border-radius: 0px !important;
+    border: none !important;
+    font-family: 'Times New Roman', serif !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.5px;
+    padding: 0.6rem 1.2rem;
+}
+.stButton button:hover {
+    background-color: #222222 !important;
+}
+
+/* Tables */
+table {
+    border-collapse: collapse !important;
+    margin-top: 1rem !important;
+}
+th, td {
+    border: none !important;
+    padding: 0.4rem 0.6rem !important;
+    text-align: left !important;
+}
+
+/* Hide Streamlit header/footer elements */
+header, footer {visibility: hidden !important;}
+</style>
+""", unsafe_allow_html=True)
+
+
 
 
 st.set_page_config(page_title="Brooks Price-Action Day Report", layout="wide")
